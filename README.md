@@ -1,7 +1,6 @@
 # KDE Dotfiles
 A minimal configuration for KDE desktops using the Nord theme
 
-## Preview
 ![Desktop Screenshot](screenshots/desktop.png)
 ![Terminal Screenshot](screenshots/terminal.png)
 
@@ -30,10 +29,16 @@ chmod +x install.sh
 
 By default, the script copies the files into your home directory and replaces existing targets directly
 
-Optional step:
+### Optional steps
 
 ```bash
 ./install.sh --apply-theme
 ```
 
 `--apply-theme` automatically applies the KDE color scheme, Plasma theme, window decoration, icon theme, cursor theme, Konsole default profile, desktop wallpaper, and lockscreen wallpaper for the current logged-in user
+
+```bash
+./install.sh --install-cachyos-fish
+```
+
+`--install-cachyos-fish` overwrites CachyOS's system fish config at `/usr/share/cachyos-fish-config/cachyos-config.fish` which requires `sudo`. The default install overrides the user-level config
