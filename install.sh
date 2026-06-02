@@ -4,12 +4,16 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APPLY_THEME=0
+INSTALL_CACHYOS_FISH=0
 
 WALLPAPER_PATH="${HOME}/Pictures/Wallpapers/nord_tux.png"
+CACHYOS_FISH_SOURCE="${SCRIPT_DIR}/.config/fish/config.fish"
+CACHYOS_FISH_TARGET="/usr/share/cachyos-fish-config/cachyos-config.fish"
 
 INSTALL_MAP=(
   ".config/btop:.config/btop"
   ".config/fastfetch:.config/fastfetch"
+  ".config/fish:.config/fish"
   ".local/share/aurorae/themes/Nordic:.local/share/aurorae/themes/Nordic"
   ".local/share/color-schemes/nordic.colors:.local/share/color-schemes/nordic.colors"
   ".local/share/icons/capitaine-cursors-nord:.local/share/icons/capitaine-cursors-nord"
@@ -24,8 +28,17 @@ INSTALL_MAP=(
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--apply-theme]
+Usage: ./install.sh [--apply-theme] [--install-cachyos-fish]
 EOF
+}
+
+install_cachyos_fish_config() {
+  [[ -f "$CACHYOS_FISH_SOURCE" ]] || { echo "Missing fish config at ${CACHYOS_FISH_SOURCE}"; exit 1; }
+  command -v sudo >/dev/null 2>&1 || { echo "Missing required command: sudo"; exit 1; }
+  command -v install >/dev/null 2>&1 || { echo "Missing required command: install"; exit 1; }
+
+  echo "Installing CachyOS fish config to ${CACHYOS_FISH_TARGET}"
+  sudo install -Dm644 "$CACHYOS_FISH_SOURCE" "$CACHYOS_FISH_TARGET"
 }
 
 apply_desktop_wallpaper() {
@@ -90,6 +103,9 @@ while [[ $# -gt 0 ]]; do
     --apply-theme)
       APPLY_THEME=1
       ;;
+    --install-cachyos-fish)
+      INSTALL_CACHYOS_FISH=1
+      ;;
     -h|--help)
       usage
       exit 0
@@ -127,6 +143,10 @@ done
 
 if (( APPLY_THEME )); then
   apply_theme_settings
+fi
+
+if (( INSTALL_CACHYOS_FISH )); then
+  install_cachyos_fish_config
 fi
 
 echo "Install complete."
