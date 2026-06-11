@@ -6,24 +6,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APPLY_THEME=0
 INSTALL_CACHYOS_FISH=0
 
-WALLPAPER_PATH="${HOME}/Pictures/Wallpapers/nord_tux.png"
+WALLPAPER_PATH="${HOME}/Pictures/Wallpapers/nord_cachyos.png"
 CACHYOS_FISH_SOURCE="${SCRIPT_DIR}/.config/fish/config.fish"
 CACHYOS_FISH_TARGET="/usr/share/cachyos-fish-config/cachyos-config.fish"
+LAUNCHER_ICON_SOURCE="${SCRIPT_DIR}/assets/app-launcher-logo/cachyos-minimal.svg"
 
 INSTALL_MAP=(
   ".config/btop:.config/btop"
   ".config/fastfetch:.config/fastfetch"
   ".config/fish:.config/fish"
   ".local/share/aurorae/themes/Nordic:.local/share/aurorae/themes/Nordic"
-  ".local/share/color-schemes/nordic.colors:.local/share/color-schemes/nordic.colors"
+  ".local/share/color-schemes/nordic-blue.colors:.local/share/color-schemes/nordic-blue.colors"
+  ".local/share/icons/Papirus:.local/share/icons/Papirus"
+  ".local/share/icons/Papirus-Dark:.local/share/icons/Papirus-Dark"
+  ".local/share/icons/Papirus-Light:.local/share/icons/Papirus-Light"
   ".local/share/icons/capitaine-cursors-nord:.local/share/icons/capitaine-cursors-nord"
-  ".local/share/icons/Tela-circle:.local/share/icons/Tela-circle"
-  ".local/share/icons/Tela-circle-dark:.local/share/icons/Tela-circle-dark"
-  ".local/share/icons/Tela-circle-light:.local/share/icons/Tela-circle-light"
   ".local/share/konsole/Nord.profile:.local/share/konsole/Nord.profile"
   ".local/share/konsole/nord.colorscheme:.local/share/konsole/nord.colorscheme"
   ".local/share/plasma/desktoptheme/polar-gleam:.local/share/plasma/desktoptheme/polar-gleam"
-  "assets/wallpapers/nord_tux.png:Pictures/Wallpapers/nord_tux.png"
+  "assets/wallpapers/nord_cachyos.png:Pictures/Wallpapers/nord_cachyos.png"
 )
 
 usage() {
@@ -39,6 +40,18 @@ install_cachyos_fish_config() {
 
   echo "Installing CachyOS fish config to ${CACHYOS_FISH_TARGET}"
   sudo install -Dm644 "$CACHYOS_FISH_SOURCE" "$CACHYOS_FISH_TARGET"
+}
+
+install_launcher_icon_override() {
+  local target
+
+  [[ -f "$LAUNCHER_ICON_SOURCE" ]] || { echo "Missing launcher icon at ${LAUNCHER_ICON_SOURCE}"; exit 1; }
+  command -v install >/dev/null 2>&1 || { echo "Missing required command: install"; exit 1; }
+
+  for size in 32 48 64; do
+    target="${HOME}/.local/share/icons/Papirus-Dark/${size}x${size}/apps/start-here-kde-plasma.svg"
+    install -Dm644 "$LAUNCHER_ICON_SOURCE" "$target"
+  done
 }
 
 apply_desktop_wallpaper() {
@@ -84,10 +97,10 @@ apply_theme_settings() {
   [[ -e "$WALLPAPER_PATH" ]] || { echo "Wallpaper not found at ${WALLPAPER_PATH}"; exit 1; }
 
   echo "Applying KDE settings"
-  plasma-apply-colorscheme nordic >/dev/null 2>&1
+  plasma-apply-colorscheme "Nordic Blue" >/dev/null 2>&1
   plasma-apply-desktoptheme polar-gleam >/dev/null 2>&1
   /usr/lib/plasma-apply-aurorae __aurorae__svg__Nordic >/dev/null 2>&1
-  kwriteconfig6 --file kdeglobals --group Icons --key Theme Tela-circle-dark
+  kwriteconfig6 --file kdeglobals --group Icons --key Theme Papirus-Dark
   kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "capitaine-cursors-nord"
   kwriteconfig6 --file kcminputrc --group Mouse --key cursorSize 32
   plasma-apply-cursortheme "breeze_cursors" >/dev/null 2>&1 || true
@@ -140,6 +153,8 @@ for entry in "${INSTALL_MAP[@]}"; do
   echo "Copying ${source} -> ${target}"
   cp -a "$source" "$target"
 done
+
+install_launcher_icon_override
 
 if (( APPLY_THEME )); then
   apply_theme_settings
