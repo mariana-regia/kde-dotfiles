@@ -14,7 +14,7 @@ A minimal configuration for KDE desktops using the Nord theme
 * **Color Scheme:** Nordic Blue
 * **Plasma Theme:** [Polar Gleam](https://store.kde.org/p/2321371)
 * **Plasma Window Decorations:** [Nordic](https://store.kde.org/p/1326274/)
-* **Icons:** Papirus Dark (Nord folders)
+* **Icons:** [Papirus Dark (Nord folders)](https://store.kde.org/p/1166289)
 * **Cursors:** [Capitaine Cursors (Nord)](https://store.kde.org/p/1818760)
 * **Firefox Theme:** [Nord](https://addons.mozilla.org/pt-BR/firefox/addon/nord123/)
 * **VS Code Theme:** [Nord Flat](https://marketplace.visualstudio.com/items?itemName=3ash.nord-flat)
