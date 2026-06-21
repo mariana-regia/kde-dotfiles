@@ -143,6 +143,10 @@ function __msg
                     echo "Flatpak não está instalado."
                 case skip_flatpak
                     echo "Flatpak não está instalado; ignorando atualizações Flatpak."
+                case no_flatpak_updates
+                    echo "Nenhuma atualização Flatpak encontrada."
+                case aur_helper_missing
+                    echo "Nenhum helper AUR suportado encontrado. Instale o paru ou yay."
             end
 
         case '*'
@@ -161,23 +165,52 @@ function __msg
                     echo "Flatpak is not installed."
                 case skip_flatpak
                     echo "Flatpak is not installed; skipping Flatpak updates."
+                case no_flatpak_updates
+                    echo "No Flatpak updates found."
+                case aur_helper_missing
+                    echo "No supported AUR helper found. Install paru or yay."
             end
     end
 end
 
+function __aur_helper
+    if command -q paru
+        echo paru
+        return 0
+    end
+
+    if command -q yay
+        echo yay
+        return 0
+    end
+
+    return 1
+end
+
 # Updates official packages, AUR and Flatpaks
 function update
+    set -l had_error 0
+    set -l aur_helper (__aur_helper)
+
     echo
     set_color --bold
     __msg pacman_updates
     set_color normal
     sudo pacman -Syu
+    or set had_error 1
 
     echo
     set_color --bold
     __msg aur_updates
     set_color normal
-    paru -Sua
+
+    if test -n "$aur_helper"
+        $aur_helper -Sua
+        or set had_error 1
+    else
+        __msg aur_helper_missing
+        set had_error 1
+    end
 
     echo
     set_color --bold
@@ -186,13 +219,54 @@ function update
 
     if command -q flatpak
         flatpak update
+        or set had_error 1
     else
         __msg skip_flatpak
     end
+
+    return $had_error
 end
 
 # Checks for updates for official packages, AUR and Flatpaks
 function upcheck
+    set -l had_error 0
+    set -l aur_helper (__aur_helper)
+
+    function __read_command_output --argument-names cmd no_updates_status
+        set -l stdout_file (mktemp)
+        set -l stderr_file (mktemp)
+
+        eval $cmd >$stdout_file 2>$stderr_file
+        set -l cmd_status $status
+
+        set -l stdout_lines
+        set -l stderr_lines
+
+        if test -s $stdout_file
+            set stdout_lines (string split "\n" -- (cat $stdout_file))
+        end
+
+        if test -s $stderr_file
+            set stderr_lines (string split "\n" -- (cat $stderr_file))
+        end
+
+        rm -f $stdout_file $stderr_file
+
+        set -g __upcheck_stdout $stdout_lines
+        set -g __upcheck_stderr $stderr_lines
+        set -g __upcheck_status $cmd_status
+
+        if test $cmd_status -eq 0
+            return 0
+        end
+
+        if test $cmd_status -eq $no_updates_status
+            return 2
+        end
+
+        return 1
+    end
+
     function __highlight_updates
         while read -l line
             set parts (string split " -> " $line)
@@ -228,12 +302,22 @@ function upcheck
     __msg pacman_updates
     set_color normal
 
-    set official_updates (checkupdates 2>/dev/null)
+    __read_command_output "checkupdates" 2
 
-    if test (count $official_updates) -gt 0
-        printf "%s\n" $official_updates | __highlight_updates
-    else
-        __msg no_official
+    switch $__upcheck_status
+        case 0
+            if test (count $__upcheck_stdout) -gt 0
+                printf "%s\n" $__upcheck_stdout | __highlight_updates
+            else
+                __msg no_official
+            end
+        case 2
+            __msg no_official
+        case '*'
+            if test (count $__upcheck_stderr) -gt 0
+                printf "%s\n" $__upcheck_stderr >&2
+            end
+            set had_error 1
     end
 
     echo
@@ -241,12 +325,27 @@ function upcheck
     __msg aur_updates
     set_color normal
 
-    set aur_updates (paru -Qua 2>/dev/null)
+    if test -n "$aur_helper"
+        __read_command_output "$aur_helper -Qua" 1
 
-    if test (count $aur_updates) -gt 0
-        printf "%s\n" $aur_updates | __highlight_updates
+        switch $__upcheck_status
+            case 0
+                if test (count $__upcheck_stdout) -gt 0
+                    printf "%s\n" $__upcheck_stdout | __highlight_updates
+                else
+                    __msg no_aur
+                end
+            case 1
+                __msg no_aur
+            case '*'
+                if test (count $__upcheck_stderr) -gt 0
+                    printf "%s\n" $__upcheck_stderr >&2
+                end
+                set had_error 1
+        end
     else
-        __msg no_aur
+        __msg aur_helper_missing
+        set had_error 1
     end
 
     echo
@@ -255,10 +354,27 @@ function upcheck
     set_color normal
 
     if command -q flatpak
-        flatpak remote-ls --updates --columns=application,version,branch
+        __read_command_output "flatpak remote-ls --updates --columns=application,version,branch" 0
+
+        if test $__upcheck_status -eq 0
+            if test (count $__upcheck_stdout) -gt 0
+                printf "%s\n" $__upcheck_stdout
+            else
+                __msg no_flatpak_updates
+            end
+        else
+            if test (count $__upcheck_stderr) -gt 0
+                printf "%s\n" $__upcheck_stderr >&2
+            end
+            set had_error 1
+        end
     else
         __msg no_flatpak
     end
+
+    functions -e __read_command_output
+    set -e __upcheck_stdout __upcheck_stderr __upcheck_status
+    return $had_error
 end
 
 # Get fastest mirrors
