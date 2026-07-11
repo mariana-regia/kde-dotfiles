@@ -14,7 +14,7 @@ A minimal configuration for KDE desktops using the Nord theme
 * **Color Scheme:** Nordic Blue
 * **Plasma Theme:** [Polar Gleam](https://store.kde.org/p/2321371)
 * **Plasma Window Decorations:** [Nordic](https://store.kde.org/p/1326274/)
-* **Icons:** [Papirus Dark (Nord folders)](https://store.kde.org/p/1166289)
+* **Icons:** Papirus-Dark-Nordic (inherits from [Papirus Dark](https://store.kde.org/p/1166289))
 * **Cursors:** [Capitaine Cursors (Nord)](https://store.kde.org/p/1818760)
 * **Firefox Theme:** [Nord](https://addons.mozilla.org/pt-BR/firefox/addon/nord123/)
 * **VS Code Theme:** [Nord Flat](https://marketplace.visualstudio.com/items?itemName=3ash.nord-flat)
@@ -27,7 +27,7 @@ chmod +x install.sh
 ./install.sh
 ```
 
-By default, the script copies the files into your home directory and replaces existing targets directly. That includes the Fish config, the Papirus icon theme assets, and a local `start-here-kde-plasma` override based on `assets/app-launcher-logo/cachyos-minimal.svg`
+By default, the script copies the files into your home directory and replaces existing targets directly. It also installs `papirus-icon-theme` with `pacman` and builds a system-wide `Papirus-Dark-Nordic` icon theme under `/usr/local/share/icons` using Nordic folder overrides plus the custom `start-here-kde-plasma` launcher icon from `assets/app-launcher-logo/cachyos-minimal.svg`
 
 ### Optional steps
 
@@ -41,4 +41,4 @@ By default, the script copies the files into your home directory and replaces ex
 ./install.sh --install-cachyos-fish
 ```
 
-`--install-cachyos-fish` overwrites CachyOS's system fish config at `/usr/share/cachyos-fish-config/cachyos-config.fish` which requires `sudo`. The default install overrides the user-level config
+`--install-cachyos-fish` overwrites CachyOS's system fish config at `/usr/share/cachyos-fish-config/cachyos-config.fish`. The default install overrides the user-level config

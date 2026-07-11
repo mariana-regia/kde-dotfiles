@@ -10,6 +10,10 @@ WALLPAPER_PATH="${HOME}/Pictures/Wallpapers/nord_cachyos.png"
 CACHYOS_FISH_SOURCE="${SCRIPT_DIR}/.config/fish/config.fish"
 CACHYOS_FISH_TARGET="/usr/share/cachyos-fish-config/cachyos-config.fish"
 LAUNCHER_ICON_SOURCE="${SCRIPT_DIR}/assets/app-launcher-logo/cachyos-minimal.svg"
+PAPIRUS_ICON_PACKAGE="papirus-icon-theme"
+PAPIRUS_SYSTEM_DIR="/usr/share/icons"
+CUSTOM_ICON_THEME_NAME="Papirus-Dark-Nordic"
+CUSTOM_ICON_THEME_DIR="/usr/local/share/icons/${CUSTOM_ICON_THEME_NAME}"
 
 INSTALL_MAP=(
   ".config/btop:.config/btop"
@@ -17,9 +21,6 @@ INSTALL_MAP=(
   ".config/fish:.config/fish"
   ".local/share/aurorae/themes/Nordic:.local/share/aurorae/themes/Nordic"
   ".local/share/color-schemes/nordic-blue.colors:.local/share/color-schemes/nordic-blue.colors"
-  ".local/share/icons/Papirus:.local/share/icons/Papirus"
-  ".local/share/icons/Papirus-Dark:.local/share/icons/Papirus-Dark"
-  ".local/share/icons/Papirus-Light:.local/share/icons/Papirus-Light"
   ".local/share/icons/capitaine-cursors-nord:.local/share/icons/capitaine-cursors-nord"
   ".local/share/konsole/Nord.profile:.local/share/konsole/Nord.profile"
   ".local/share/konsole/nord.colorscheme:.local/share/konsole/nord.colorscheme"
@@ -42,16 +43,80 @@ install_cachyos_fish_config() {
   sudo install -Dm644 "$CACHYOS_FISH_SOURCE" "$CACHYOS_FISH_TARGET"
 }
 
-install_launcher_icon_override() {
-  local target
+install_papirus_icon_theme() {
+  command -v sudo >/dev/null 2>&1 || { echo "Missing required command: sudo"; exit 1; }
+  command -v pacman >/dev/null 2>&1 || { echo "Missing required command: pacman"; exit 1; }
 
+  echo "Installing ${PAPIRUS_ICON_PACKAGE} from the system repositories"
+  sudo pacman -S --needed --noconfirm "${PAPIRUS_ICON_PACKAGE}"
+}
+
+install_global_nordic_icon_theme() {
+  local temp_dir source_dir target_dir source_icon target_icon size rel_dir rel_target directories_csv
+  local -a directories
+
+  [[ -d "${PAPIRUS_SYSTEM_DIR}/Papirus-Dark" ]] || { echo "Papirus Dark theme not found at ${PAPIRUS_SYSTEM_DIR}/Papirus-Dark"; exit 1; }
   [[ -f "$LAUNCHER_ICON_SOURCE" ]] || { echo "Missing launcher icon at ${LAUNCHER_ICON_SOURCE}"; exit 1; }
+  command -v sudo >/dev/null 2>&1 || { echo "Missing required command: sudo"; exit 1; }
+  command -v find >/dev/null 2>&1 || { echo "Missing required command: find"; exit 1; }
+  command -v ln >/dev/null 2>&1 || { echo "Missing required command: ln"; exit 1; }
   command -v install >/dev/null 2>&1 || { echo "Missing required command: install"; exit 1; }
+  command -v mktemp >/dev/null 2>&1 || { echo "Missing required command: mktemp"; exit 1; }
+
+  temp_dir="$(mktemp -d)"
+  trap 'rm -rf "$temp_dir"' RETURN
+
+  echo "Building ${CUSTOM_ICON_THEME_NAME}"
+
+  while IFS= read -r source_icon; do
+    source_dir="$(dirname "$source_icon")"
+    rel_dir="${source_dir#${PAPIRUS_SYSTEM_DIR}/Papirus-Dark/}"
+    target_dir="${temp_dir}/${rel_dir}"
+    target_icon="${target_dir}/$(basename "$source_icon" | sed 's/^folder-nordic/folder/')"
+
+    mkdir -p "$target_dir"
+    ln -sfn "$source_icon" "$target_icon"
+  done < <(find "${PAPIRUS_SYSTEM_DIR}/Papirus-Dark" -path '*/places/folder-nordic*.svg' | sort)
 
   for size in 32 48 64; do
-    target="${HOME}/.local/share/icons/Papirus-Dark/${size}x${size}/apps/start-here-kde-plasma.svg"
-    install -Dm644 "$LAUNCHER_ICON_SOURCE" "$target"
+    target_icon="${temp_dir}/${size}x${size}/apps/start-here-kde-plasma.svg"
+    install -Dm644 "$LAUNCHER_ICON_SOURCE" "$target_icon"
   done
+
+  while IFS= read -r rel_target; do
+    directories+=("$rel_target")
+  done < <(find "$temp_dir" -mindepth 1 -type d -printf '%P\n' | sort)
+
+  directories_csv="$(printf '%s\n' "${directories[@]}" | paste -sd, -)"
+
+  {
+    echo "[Icon Theme]"
+    echo "Name=${CUSTOM_ICON_THEME_NAME}"
+    echo "Comment=Papirus Dark with Nordic folder overrides"
+    echo "Inherits=Papirus-Dark"
+    echo "Directories=${directories_csv}"
+    echo
+
+    for rel_dir in "${directories[@]}"; do
+      size="${rel_dir%%/*}"
+      size="${size%%x*}"
+
+      echo "[${rel_dir}]"
+      if [[ "$rel_dir" == */places ]]; then
+        echo "Context=Places"
+      else
+        echo "Context=Applications"
+      fi
+      echo "Size=${size}"
+      echo "Type=Fixed"
+      echo
+    done
+  } > "${temp_dir}/index.theme"
+
+  echo "Installing ${CUSTOM_ICON_THEME_NAME} to ${CUSTOM_ICON_THEME_DIR}"
+  sudo rm -rf "${CUSTOM_ICON_THEME_DIR}"
+  sudo install -d "$(dirname "${CUSTOM_ICON_THEME_DIR}")"
+  sudo cp -a "$temp_dir" "${CUSTOM_ICON_THEME_DIR}"
 }
 
 apply_desktop_wallpaper() {
@@ -100,7 +165,7 @@ apply_theme_settings() {
   plasma-apply-colorscheme "Nordic Blue" >/dev/null 2>&1
   plasma-apply-desktoptheme polar-gleam >/dev/null 2>&1
   /usr/lib/plasma-apply-aurorae __aurorae__svg__Nordic >/dev/null 2>&1
-  kwriteconfig6 --file kdeglobals --group Icons --key Theme Papirus-Dark
+  kwriteconfig6 --file kdeglobals --group Icons --key Theme "${CUSTOM_ICON_THEME_NAME}"
   kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "capitaine-cursors-nord"
   kwriteconfig6 --file kcminputrc --group Mouse --key cursorSize 32
   plasma-apply-cursortheme "breeze_cursors" >/dev/null 2>&1 || true
@@ -154,7 +219,8 @@ for entry in "${INSTALL_MAP[@]}"; do
   cp -a "$source" "$target"
 done
 
-install_launcher_icon_override
+install_papirus_icon_theme
+install_global_nordic_icon_theme
 
 if (( APPLY_THEME )); then
   apply_theme_settings
