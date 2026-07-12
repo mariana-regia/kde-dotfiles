@@ -11,10 +11,10 @@ A minimal configuration for KDE desktops using the Nord theme
 * **Window Manager:** Kwin
 * **Terminal:** Konsole
 * **Fastfetch:** [Fastfetch Config](https://github.com/dacrab/fastfetch-config) 
-* **Color Scheme:** Nordic Blue
+* **Color Scheme:** Nordic Blue (custom variant based on [Nordic](https://store.kde.org/p/1326271/))
 * **Plasma Theme:** [Polar Gleam](https://store.kde.org/p/2321371)
 * **Plasma Window Decorations:** [Nordic](https://store.kde.org/p/1326274/)
-* **Icons:** Papirus-Dark-Nordic (inherits from [Papirus Dark](https://store.kde.org/p/1166289))
+* **Icons:** Papirus-Dark-Nordic (locally built icon theme of [Papirus Dark](https://store.kde.org/p/1166289)'s Nordic folders)
 * **Cursors:** [Capitaine Cursors (Nord)](https://store.kde.org/p/1818760)
 * **Firefox Theme:** [Nord](https://addons.mozilla.org/pt-BR/firefox/addon/nord123/)
 * **VS Code Theme:** [Nord Flat](https://marketplace.visualstudio.com/items?itemName=3ash.nord-flat)
