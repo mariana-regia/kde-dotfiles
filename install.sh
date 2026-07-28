@@ -5,10 +5,19 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APPLY_THEME=0
 INSTALL_CACHYOS_FISH=0
+INSTALL_FIREFOX_USER_JS=1
+FIREFOX_PROFILE_NAME="${FIREFOX_PROFILE_NAME:-}"
+FIREFOX_PROFILE_NAME_EXPLICIT=0
+FIREFOX_PROFILE_DEFAULT_NAME="default-release"
+
+if [[ -n "$FIREFOX_PROFILE_NAME" ]]; then
+  FIREFOX_PROFILE_NAME_EXPLICIT=1
+fi
 
 WALLPAPER_PATH="${HOME}/Pictures/Wallpapers/nord_cachyos.png"
 CACHYOS_FISH_SOURCE="${SCRIPT_DIR}/.config/fish/config.fish"
 CACHYOS_FISH_TARGET="/usr/share/cachyos-fish-config/cachyos-config.fish"
+FIREFOX_USER_JS_SOURCE="${SCRIPT_DIR}/firefox/user.js"
 LAUNCHER_ICON_SOURCE="${SCRIPT_DIR}/assets/app-launcher-logo/cachyos-minimal.svg"
 PAPIRUS_ICON_PACKAGE="papirus-icon-theme"
 PAPIRUS_SYSTEM_DIR="/usr/share/icons"
@@ -19,6 +28,7 @@ INSTALL_MAP=(
   ".config/btop:.config/btop"
   ".config/fastfetch:.config/fastfetch"
   ".config/fish:.config/fish"
+  ".config/psd/psd.conf:.config/psd/psd.conf"
   ".local/share/aurorae/themes/Nordic:.local/share/aurorae/themes/Nordic"
   ".local/share/color-schemes/nordic-blue.colors:.local/share/color-schemes/nordic-blue.colors"
   ".local/share/icons/capitaine-cursors-nord:.local/share/icons/capitaine-cursors-nord"
@@ -30,8 +40,146 @@ INSTALL_MAP=(
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--apply-theme] [--install-cachyos-fish]
+Usage: ./install.sh [--apply-theme] [--install-cachyos-fish] [--firefox-profile NAME] [--skip-firefox]
 EOF
+}
+
+list_firefox_profiles() {
+  local root="$1" profiles_ini="${root}/profiles.ini"
+  local name="" path="" is_relative="1" line candidate
+
+  [[ -f "$profiles_ini" ]] || return 0
+
+  emit_profile() {
+    if [[ -z "$path" ]]; then
+      return 0
+    fi
+
+    if [[ "$is_relative" == "1" ]]; then
+      candidate="${root}/${path}"
+    else
+      candidate="$path"
+    fi
+
+    [[ -d "$candidate" ]] && printf '%s\t%s\n' "${name:-${path##*/}}" "$candidate"
+  }
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      "[Profile"*)
+        emit_profile
+        name=""
+        path=""
+        is_relative="1"
+        ;;
+      Name=*)
+        name="${line#Name=}"
+        ;;
+      Path=*)
+        path="${line#Path=}"
+        ;;
+      IsRelative=*)
+        is_relative="${line#IsRelative=}"
+        ;;
+    esac
+  done < "$profiles_ini"
+
+  emit_profile
+}
+
+profile_matches_name() {
+  local profile_name="$1" display_name="$2" profile_dir="$3" path_base="${profile_dir##*/}"
+
+  [[ "$display_name" == "$profile_name" || "$display_name" == *"$profile_name"* || "$path_base" == *"$profile_name"* ]]
+}
+
+install_firefox_user_js() {
+  local config_home="${XDG_CONFIG_HOME:-${HOME}/.config}"
+  local root display_name profile_dir index choice default_index=""
+  local -a firefox_roots profile_names profile_dirs
+
+  [[ -f "$FIREFOX_USER_JS_SOURCE" ]] || { echo "Missing Firefox user.js at ${FIREFOX_USER_JS_SOURCE}"; exit 1; }
+  command -v install >/dev/null 2>&1 || { echo "Missing required command: install"; exit 1; }
+
+  firefox_roots=(
+    "${config_home}/mozilla/firefox"
+    "${HOME}/.mozilla/firefox"
+  )
+
+  for root in "${firefox_roots[@]}"; do
+    [[ -d "$root" ]] || continue
+
+    while IFS=$'\t' read -r display_name profile_dir; do
+      profile_names+=("$display_name")
+      profile_dirs+=("$profile_dir")
+    done < <(list_firefox_profiles "$root")
+  done
+
+  if ((${#profile_dirs[@]} == 0)); then
+    echo "No Firefox profiles were found. Skipping Betterfox user.js."
+    return 0
+  fi
+
+  if (( FIREFOX_PROFILE_NAME_EXPLICIT )); then
+    for index in "${!profile_dirs[@]}"; do
+      if profile_matches_name "$FIREFOX_PROFILE_NAME" "${profile_names[$index]}" "${profile_dirs[$index]}"; then
+        profile_dir="${profile_dirs[$index]}"
+        echo "Installing Betterfox user.js to ${profile_dir}/user.js"
+        install -Dm644 "$FIREFOX_USER_JS_SOURCE" "${profile_dir}/user.js"
+        return 0
+      fi
+    done
+
+    echo "Firefox profile matching '${FIREFOX_PROFILE_NAME}' was not found. Skipping Betterfox user.js."
+    return 0
+  fi
+
+  for index in "${!profile_dirs[@]}"; do
+    if profile_matches_name "$FIREFOX_PROFILE_DEFAULT_NAME" "${profile_names[$index]}" "${profile_dirs[$index]}"; then
+      default_index="$index"
+      break
+    fi
+  done
+
+  if [[ -t 0 && -t 1 ]]; then
+    echo "Select the Firefox profile to receive Betterfox user.js:"
+    for index in "${!profile_dirs[@]}"; do
+      printf '  %d) %s (%s)' "$((index + 1))" "${profile_names[$index]}" "${profile_dirs[$index]}"
+      if [[ "$index" == "$default_index" ]]; then
+        printf ' [default]'
+      fi
+      printf '\n'
+    done
+    echo "  s) Skip Firefox user.js"
+
+    while true; do
+      read -r -p "Profile number${default_index:+ [$((default_index + 1))]}: " choice
+      if [[ -z "$choice" && -n "$default_index" ]]; then
+        choice="$((default_index + 1))"
+      fi
+      if [[ "$choice" == "s" || "$choice" == "S" ]]; then
+        echo "Skipping Betterfox user.js."
+        return 0
+      fi
+      if [[ "$choice" =~ ^[0-9]+$ && "$choice" -ge 1 && "$choice" -le "${#profile_dirs[@]}" ]]; then
+        profile_dir="${profile_dirs[$((choice - 1))]}"
+        echo "Installing Betterfox user.js to ${profile_dir}/user.js"
+        install -Dm644 "$FIREFOX_USER_JS_SOURCE" "${profile_dir}/user.js"
+        return 0
+      fi
+      echo "Invalid selection."
+    done
+  fi
+
+  if [[ -n "$default_index" ]]; then
+    profile_dir="${profile_dirs[$default_index]}"
+    echo "Non-interactive shell detected. Installing Betterfox user.js to Firefox default-release profile ${profile_dir}/user.js"
+    install -Dm644 "$FIREFOX_USER_JS_SOURCE" "${profile_dir}/user.js"
+    return 0
+  fi
+
+  echo "Non-interactive shell detected and no default-release profile was found. Skipping Betterfox user.js."
+  echo "Use --firefox-profile NAME or FIREFOX_PROFILE_NAME=NAME to choose a profile."
 }
 
 install_cachyos_fish_config() {
@@ -184,6 +332,15 @@ while [[ $# -gt 0 ]]; do
     --install-cachyos-fish)
       INSTALL_CACHYOS_FISH=1
       ;;
+    --firefox-profile)
+      [[ $# -ge 2 ]] || { echo "Missing value for --firefox-profile"; usage; exit 1; }
+      FIREFOX_PROFILE_NAME="$2"
+      FIREFOX_PROFILE_NAME_EXPLICIT=1
+      shift
+      ;;
+    --skip-firefox)
+      INSTALL_FIREFOX_USER_JS=0
+      ;;
     -h|--help)
       usage
       exit 0
@@ -221,6 +378,10 @@ done
 
 install_papirus_icon_theme
 install_global_nordic_icon_theme
+
+if (( INSTALL_FIREFOX_USER_JS )); then
+  install_firefox_user_js
+fi
 
 if (( APPLY_THEME )); then
   apply_theme_settings
