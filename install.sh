@@ -14,28 +14,26 @@ if [[ -n "$FIREFOX_PROFILE_NAME" ]]; then
   FIREFOX_PROFILE_NAME_EXPLICIT=1
 fi
 
-WALLPAPER_PATH="${HOME}/Pictures/Wallpapers/nord_cachyos.png"
-CACHYOS_FISH_SOURCE="${SCRIPT_DIR}/.config/fish/config.fish"
+WALLPAPER_PATH="${HOME}/Pictures/Wallpapers/atoms.png"
+CACHYOS_FISH_SOURCE="${SCRIPT_DIR}/usr/share/cachyos-fish-config/cachyos-config.fish"
 CACHYOS_FISH_TARGET="/usr/share/cachyos-fish-config/cachyos-config.fish"
-FIREFOX_USER_JS_SOURCE="${SCRIPT_DIR}/firefox/user.js"
-LAUNCHER_ICON_SOURCE="${SCRIPT_DIR}/assets/app-launcher-logo/cachyos-minimal.svg"
-PAPIRUS_ICON_PACKAGE="papirus-icon-theme"
-PAPIRUS_SYSTEM_DIR="/usr/share/icons"
-CUSTOM_ICON_THEME_NAME="Papirus-Dark-Nordic"
-CUSTOM_ICON_THEME_DIR="/usr/local/share/icons/${CUSTOM_ICON_THEME_NAME}"
+FIREFOX_USER_JS_SOURCE="${SCRIPT_DIR}/_extra/firefox/user.js"
+ICON_THEME_NAME="Papirus-Colors-Dark"
+ICON_THEME_BASE_PACKAGE="papirus-icon-theme"
+ICON_THEME_BASE_DIR="Papirus-Dark"
+SDDM_ICONS_DIR="/usr/share/icons"
 
 INSTALL_MAP=(
+  ".config/alacritty:.config/alacritty"
   ".config/btop:.config/btop"
   ".config/fastfetch:.config/fastfetch"
-  ".config/fish:.config/fish"
+  ".config/VSCodium:.config/VSCodium"
   ".config/psd/psd.conf:.config/psd/psd.conf"
-  ".local/share/aurorae/themes/Nordic:.local/share/aurorae/themes/Nordic"
-  ".local/share/color-schemes/nordic-blue.colors:.local/share/color-schemes/nordic-blue.colors"
-  ".local/share/icons/capitaine-cursors-nord:.local/share/icons/capitaine-cursors-nord"
-  ".local/share/konsole/Nord.profile:.local/share/konsole/Nord.profile"
-  ".local/share/konsole/nord.colorscheme:.local/share/konsole/nord.colorscheme"
-  ".local/share/plasma/desktoptheme/polar-gleam:.local/share/plasma/desktoptheme/polar-gleam"
-  "assets/wallpapers/nord_cachyos.png:Pictures/Wallpapers/nord_cachyos.png"
+  ".local/share/aurorae/themes/Gruvbox:.local/share/aurorae/themes/Gruvbox"
+  ".local/share/color-schemes/DarkPastels.colors:.local/share/color-schemes/DarkPastels.colors"
+  ".local/share/plasma/desktoptheme/Polar-Gleam:.local/share/plasma/desktoptheme/Polar-Gleam"
+  ".vscode-oss:.vscode-oss"
+  "_extra/assets/wallpapers/atoms.png:Pictures/Wallpapers/atoms.png"
 )
 
 usage() {
@@ -191,82 +189,6 @@ install_cachyos_fish_config() {
   sudo install -Dm644 "$CACHYOS_FISH_SOURCE" "$CACHYOS_FISH_TARGET"
 }
 
-install_papirus_icon_theme() {
-  command -v sudo >/dev/null 2>&1 || { echo "Missing required command: sudo"; exit 1; }
-  command -v pacman >/dev/null 2>&1 || { echo "Missing required command: pacman"; exit 1; }
-
-  echo "Installing ${PAPIRUS_ICON_PACKAGE} from the system repositories"
-  sudo pacman -S --needed --noconfirm "${PAPIRUS_ICON_PACKAGE}"
-}
-
-install_global_nordic_icon_theme() {
-  local temp_dir source_dir target_dir source_icon target_icon size rel_dir rel_target directories_csv
-  local -a directories
-
-  [[ -d "${PAPIRUS_SYSTEM_DIR}/Papirus-Dark" ]] || { echo "Papirus Dark theme not found at ${PAPIRUS_SYSTEM_DIR}/Papirus-Dark"; exit 1; }
-  [[ -f "$LAUNCHER_ICON_SOURCE" ]] || { echo "Missing launcher icon at ${LAUNCHER_ICON_SOURCE}"; exit 1; }
-  command -v sudo >/dev/null 2>&1 || { echo "Missing required command: sudo"; exit 1; }
-  command -v find >/dev/null 2>&1 || { echo "Missing required command: find"; exit 1; }
-  command -v ln >/dev/null 2>&1 || { echo "Missing required command: ln"; exit 1; }
-  command -v install >/dev/null 2>&1 || { echo "Missing required command: install"; exit 1; }
-  command -v mktemp >/dev/null 2>&1 || { echo "Missing required command: mktemp"; exit 1; }
-
-  temp_dir="$(mktemp -d)"
-  trap 'rm -rf "$temp_dir"' RETURN
-
-  echo "Building ${CUSTOM_ICON_THEME_NAME}"
-
-  while IFS= read -r source_icon; do
-    source_dir="$(dirname "$source_icon")"
-    rel_dir="${source_dir#${PAPIRUS_SYSTEM_DIR}/Papirus-Dark/}"
-    target_dir="${temp_dir}/${rel_dir}"
-    target_icon="${target_dir}/$(basename "$source_icon" | sed 's/^folder-nordic/folder/')"
-
-    mkdir -p "$target_dir"
-    ln -sfn "$source_icon" "$target_icon"
-  done < <(find "${PAPIRUS_SYSTEM_DIR}/Papirus-Dark" -path '*/places/folder-nordic*.svg' | sort)
-
-  for size in 32 48 64; do
-    target_icon="${temp_dir}/${size}x${size}/apps/start-here-kde-plasma.svg"
-    install -Dm644 "$LAUNCHER_ICON_SOURCE" "$target_icon"
-  done
-
-  while IFS= read -r rel_target; do
-    directories+=("$rel_target")
-  done < <(find "$temp_dir" -mindepth 1 -type d -printf '%P\n' | sort)
-
-  directories_csv="$(printf '%s\n' "${directories[@]}" | paste -sd, -)"
-
-  {
-    echo "[Icon Theme]"
-    echo "Name=${CUSTOM_ICON_THEME_NAME}"
-    echo "Comment=Papirus Dark with Nordic folder overrides"
-    echo "Inherits=Papirus-Dark"
-    echo "Directories=${directories_csv}"
-    echo
-
-    for rel_dir in "${directories[@]}"; do
-      size="${rel_dir%%/*}"
-      size="${size%%x*}"
-
-      echo "[${rel_dir}]"
-      if [[ "$rel_dir" == */places ]]; then
-        echo "Context=Places"
-      else
-        echo "Context=Applications"
-      fi
-      echo "Size=${size}"
-      echo "Type=Fixed"
-      echo
-    done
-  } > "${temp_dir}/index.theme"
-
-  echo "Installing ${CUSTOM_ICON_THEME_NAME} to ${CUSTOM_ICON_THEME_DIR}"
-  sudo rm -rf "${CUSTOM_ICON_THEME_DIR}"
-  sudo install -d "$(dirname "${CUSTOM_ICON_THEME_DIR}")"
-  sudo cp -a "$temp_dir" "${CUSTOM_ICON_THEME_DIR}"
-}
-
 apply_desktop_wallpaper() {
   local script
 
@@ -299,6 +221,66 @@ refresh_plasma() {
   (plasmashell >/dev/null 2>&1 &) || true
 }
 
+install_sddm_icons() {
+  local source_icons="${SCRIPT_DIR}/usr/share/icons/${ICON_THEME_NAME}"
+  local source_cursor="${SCRIPT_DIR}/usr/share/icons/Capitaine Cursors (Gruvbox)"
+  local target_icons="${SDDM_ICONS_DIR}/${ICON_THEME_NAME}"
+  local target_cursor="${SDDM_ICONS_DIR}/Capitaine Cursors (Gruvbox)"
+
+  [[ -d "$source_icons" ]] || { echo "Icon theme not found at ${source_icons}"; exit 1; }
+  [[ -d "$source_cursor" ]] || { echo "Cursor theme not found at ${source_cursor}"; exit 1; }
+  command -v sudo >/dev/null 2>&1 || { echo "Missing required command: sudo"; exit 1; }
+
+  if [[ ! -d "${SDDM_ICONS_DIR}/${ICON_THEME_BASE_DIR}" ]]; then
+    if command -v pacman >/dev/null 2>&1; then
+      echo "${ICON_THEME_NAME} inherits from ${ICON_THEME_BASE_DIR}, which is not installed. Installing ${ICON_THEME_BASE_PACKAGE}"
+      sudo pacman -S --needed --noconfirm "${ICON_THEME_BASE_PACKAGE}"
+    else
+      echo "Warning: ${ICON_THEME_NAME} inherits from ${ICON_THEME_BASE_DIR}, which is missing. Install ${ICON_THEME_BASE_PACKAGE} to get the full icon set."
+    fi
+  fi
+
+  echo "Installing ${ICON_THEME_NAME} to ${target_icons}"
+  sudo rm -rf "${target_icons}"
+  sudo cp -a "$source_icons" "${target_icons}"
+
+  echo "Installing Capitaine Cursors (Gruvbox) to ${target_cursor}"
+  sudo rm -rf "${target_cursor}"
+  sudo cp -a "$source_cursor" "${target_cursor}"
+}
+
+set_default_terminal() {
+  if command -v xdg-mime >/dev/null 2>&1 && [[ -f /usr/share/applications/Alacritty.desktop ]]; then
+    echo "Setting Alacritty as default terminal"
+    xdg-mime default Alacritty.desktop application/x-terminal-emulator 2>/dev/null || true
+  fi
+}
+
+install_panel_colorizer() {
+  local source_dir="${SCRIPT_DIR}/_extra/panel-colorizer"
+  local target_dir="${HOME}/.config/panel-colorizer"
+
+  [[ -d "$source_dir" ]] || { echo "Panel Colorizer config not found at ${source_dir}"; exit 1; }
+
+  mkdir -p "${target_dir}/tray-icons"
+  cp -a "${source_dir}/tray-icons/"*.svg "${target_dir}/tray-icons/"
+
+  for json in "${source_dir}"/*.json; do
+    sed "s|\$HOME|${HOME}|g" "$json" > "${target_dir}/$(basename "$json")"
+  done
+
+  echo "Panel Colorizer tray icons installed to ${target_dir}"
+
+  if command -v paru >/dev/null 2>&1; then
+    if ! pacman -Q plasma6-applets-panel-colorizer >/dev/null 2>&1; then
+      echo "Installing plasma6-applets-panel-colorizer via paru"
+      paru -S --needed --noconfirm plasma6-applets-panel-colorizer || echo "Failed to install plasma6-applets-panel-colorizer. Install manually with: paru -S --needed plasma6-applets-panel-colorizer"
+    fi
+  else
+    echo "paru not found. Install plasma6-applets-panel-colorizer manually: paru -S --needed plasma6-applets-panel-colorizer"
+  fi
+}
+
 apply_theme_settings() {
   command -v kwriteconfig6 >/dev/null 2>&1 || { echo "Missing required command: kwriteconfig6"; exit 1; }
   command -v plasma-apply-colorscheme >/dev/null 2>&1 || { echo "Missing required command: plasma-apply-colorscheme"; exit 1; }
@@ -310,15 +292,14 @@ apply_theme_settings() {
   [[ -e "$WALLPAPER_PATH" ]] || { echo "Wallpaper not found at ${WALLPAPER_PATH}"; exit 1; }
 
   echo "Applying KDE settings"
-  plasma-apply-colorscheme "Nordic Blue" >/dev/null 2>&1
-  plasma-apply-desktoptheme polar-gleam >/dev/null 2>&1
-  /usr/lib/plasma-apply-aurorae __aurorae__svg__Nordic >/dev/null 2>&1
-  kwriteconfig6 --file kdeglobals --group Icons --key Theme "${CUSTOM_ICON_THEME_NAME}"
-  kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "capitaine-cursors-nord"
+  plasma-apply-colorscheme DarkPastels >/dev/null 2>&1
+  plasma-apply-desktoptheme Polar-Gleam >/dev/null 2>&1
+  /usr/lib/plasma-apply-aurorae __aurorae__svg__Gruvbox >/dev/null 2>&1
+  kwriteconfig6 --file kdeglobals --group Icons --key Theme "${ICON_THEME_NAME}"
+  kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "Capitaine Cursors (Gruvbox)"
   kwriteconfig6 --file kcminputrc --group Mouse --key cursorSize 32
   plasma-apply-cursortheme "breeze_cursors" >/dev/null 2>&1 || true
-  plasma-apply-cursortheme "capitaine-cursors-nord" >/dev/null 2>&1 || echo "Failed to apply the cursor theme automatically. You may need to switch it once in System Settings."
-  kwriteconfig6 --file konsolerc --group Desktop Entry --key DefaultProfile Nord.profile
+  plasma-apply-cursortheme "Capitaine Cursors (Gruvbox)" >/dev/null 2>&1 || echo "Failed to apply the cursor theme automatically. You may need to switch it once in System Settings."
   apply_desktop_wallpaper
   kwriteconfig6 --file kscreenlockerrc --group Greeter --group Wallpaper --group org.kde.image --group General --key Image "${WALLPAPER_PATH}"
   refresh_plasma
@@ -376,8 +357,9 @@ for entry in "${INSTALL_MAP[@]}"; do
   cp -a "$source" "$target"
 done
 
-install_papirus_icon_theme
-install_global_nordic_icon_theme
+install_sddm_icons
+set_default_terminal
+install_panel_colorizer
 
 if (( INSTALL_FIREFOX_USER_JS )); then
   install_firefox_user_js
