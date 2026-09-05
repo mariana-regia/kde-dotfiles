@@ -1,0 +1,22 @@
+{
+    "workbench.colorTheme": "Gruvbox Dark Medium",
+    "terminal.integrated.commandsToSkipShell": [
+    "-workbench.action.quickOpen",                // Fixes ctrl+p and ctrl+e
+    "-workbench.action.toggleSidebarVisibility",  // Fixes ctrl+b
+    "-workbench.action.togglePanel",              // Fixes ctrl+j (hides terminal)
+    "-workbench.action.quickOpenRecent",          // Fixes ctrl+r
+    "-workbench.action.showAllSymbols",           // Fixes ctrl+t
+    "-actions.find",                              // Fixes ctrl+f
+    "-workbench.action.terminal.focusFind",       // Fixes ctrl+f inside terminal
+    "-workbench.action.gotoLine",                 // Fixes ctrl+g
+    "-workbench.action.closeActiveEditor",        // Fixes ctrl+w (closes tab)
+    "-workbench.action.terminal.killEditor",      // Fixes ctrl+w in editor terminals
+    "-editor.action.selectAll",                   // Fixes ctrl+a
+    "-workbench.action.files.newUntitledFile",    // Fixes ctrl+n
+    "-editor.action.quickFix",                    // Fixes ctrl+.
+    "-workbench.action.zoomOut",                  // Fixes ctrl+-
+    "-editor.action.rename"                       // Fixes f2
+  ],
+  "terminal.integrated.allowChords": false,
+  "terminal.integrated.gpuAcceleration": "on" // Prevents ctrl+k from waiting for a second chord key
+}
