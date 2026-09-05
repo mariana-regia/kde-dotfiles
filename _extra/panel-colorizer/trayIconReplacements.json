@@ -1,0 +1,14 @@
+[
+    {
+        "description": "qBittorrent",
+        "match": "^qBittorrent$",
+        "icon": "$HOME/.config/panel-colorizer/tray-icons/qbittorrent.svg",
+        "enabled": true
+    },
+    {
+        "description": "ZapZap",
+        "match": "^ZapZap$",
+        "icon": "$HOME/.config/panel-colorizer/tray-icons/zapzap.svg",
+        "enabled": true
+    }
+]
