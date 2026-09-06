@@ -37,7 +37,7 @@ chmod +x install.sh
 ./install.sh
 ```
 
-The script copies the dotfiles into your home directory, replaces existing targets, installs the icon and cursor themes to `/usr/share/icons` (so they appear on the SDDM login screen), sets Alacritty as the default terminal, and bundles the VSCodium settings and extensions. It also sets up [Plasma Panel Colorizer](https://github.com/luisbocanegra/plasma-panel-colorizer) with monochrome tray icons for qBittorrent and ZapZap (the tray-icon replacement feature requires its C++ plugin, installed via `plasma6-applets-panel-colorizer` from the AUR; the script attempts this automatically with `paru`, otherwise install it manually).
+The script installs everything this repository contains: user dotfiles (mirrored to `~`), system-wide resources (mirrored to `/usr`) and auxiliary files. It replaces existing targets and applies a few system settings such as changing the default terminal to Alacritty.
 
 ### Firefox
 
@@ -59,7 +59,7 @@ The PSD config is installed to `~/.config/psd/psd.conf` with `BROWSERS=()` so `p
 ./install.sh --apply-theme
 ```
 
-Applies the KDE color scheme, Plasma theme, window decoration, icon theme, cursor theme, desktop wallpaper, and lockscreen wallpaper for the current user.
+Applies the KDE theme settings for the current user (color scheme, Plasma theme, window decoration, icon and cursor themes, wallpaper, lockscreen, etc.).
 
 ```
 ./install.sh --install-cachyos-fish

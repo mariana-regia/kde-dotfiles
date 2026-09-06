@@ -249,6 +249,43 @@ install_sddm_icons() {
   sudo cp -a "$source_cursor" "${target_cursor}"
 }
 
+install_sddm_icon_theme() {
+  local sddm_theme="breeze"
+  local sddm_theme_conf="/usr/share/sddm/themes/${sddm_theme}/theme.conf"
+  local sddm_theme_conf_user="${sddm_theme_conf}.user"
+
+  if [[ -f /etc/sddm.conf.d/kde_settings.conf ]] && grep -q "^Current=" /etc/sddm.conf.d/kde_settings.conf; then
+    sddm_theme="$(grep "^Current=" /etc/sddm.conf.d/kde_settings.conf | head -1 | cut -d= -f2 | tr -d ' ')"
+    sddm_theme_conf="/usr/share/sddm/themes/${sddm_theme}/theme.conf"
+    sddm_theme_conf_user="${sddm_theme_conf}.user"
+  fi
+
+  if [[ ! -f "$sddm_theme_conf" ]]; then
+    echo "Warning: SDDM theme config not found at ${sddm_theme_conf}; skipping icon theme setup."
+    return 0
+  fi
+
+  echo "Configuring SDDM (${sddm_theme}) to use ${ICON_THEME_NAME}"
+
+  local conf_target
+  if [[ -f "$sddm_theme_conf_user" ]]; then
+    conf_target="$sddm_theme_conf_user"
+  else
+    conf_target="$sddm_theme_conf"
+  fi
+
+  if grep -q "^iconTheme=" "$conf_target"; then
+    sudo sed -i "s|^iconTheme=.*|iconTheme=${ICON_THEME_NAME}|" "$conf_target"
+  else
+    sudo tee -a "$conf_target" >/dev/null <<EOF
+
+iconTheme=${ICON_THEME_NAME}
+EOF
+  fi
+
+  echo "SDDM icon theme set to ${ICON_THEME_NAME} in ${conf_target}"
+}
+
 set_default_terminal() {
   if command -v xdg-mime >/dev/null 2>&1 && [[ -f /usr/share/applications/Alacritty.desktop ]]; then
     echo "Setting Alacritty as default terminal"
@@ -298,6 +335,7 @@ apply_theme_settings() {
   kwriteconfig6 --file kdeglobals --group Icons --key Theme "${ICON_THEME_NAME}"
   kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "Capitaine Cursors (Gruvbox)"
   kwriteconfig6 --file kcminputrc --group Mouse --key cursorSize 32
+  kwriteconfig6 --file kwriterc --group "KTextEditor Renderer" --key "Color Theme" "gruvbox Dark"
   plasma-apply-cursortheme "breeze_cursors" >/dev/null 2>&1 || true
   plasma-apply-cursortheme "Capitaine Cursors (Gruvbox)" >/dev/null 2>&1 || echo "Failed to apply the cursor theme automatically. You may need to switch it once in System Settings."
   apply_desktop_wallpaper
@@ -358,6 +396,7 @@ for entry in "${INSTALL_MAP[@]}"; do
 done
 
 install_sddm_icons
+install_sddm_icon_theme
 set_default_terminal
 install_panel_colorizer
 
